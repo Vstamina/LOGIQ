@@ -1,37 +1,39 @@
-LOGIQ MVP V4.5
+LOGIQ MVP V5.0
 
-Esta versão ajusta a interface para ficar menos poluída e mais clara para usuários de negócio.
+Esta versão mantém tudo que já existia no LOGIQ 1.0 e adiciona um novo módulo opcional:
 
-Principais mudanças:
-- Remove o aviso amarelo fixo sobre dados em uso da tela principal.
-- Aumenta a fonte dos títulos das abas.
-- Renomeia as abas para linguagem mais simples:
-  * Visão da solução
-  * Rota do motorista
-  * Resumo executivo
-  * Dados usados
-  * Lógica quântica
-- Substitui os seis cards fixos de "Como a LOGIQ decide" por um ciclo visual em formato de infinito.
-- Os detalhes do ciclo ficam recolhidos em um bloco expansível, para reduzir poluição visual.
-- Mantém a visão do operador, a rota por trecho, o link para Google Maps e a camada quantum-inspired.
+1) LOGIQ 1.0 | Rotas operacionais
+- Mantém o motor clássico de rota.
+- Mostra melhor rota, painel do motorista, resumo executivo, dados usados e camada quantum-inspired.
+- Continua usando planilhas Excel com base, pontos, distâncias, tempo, custo e CO2.
 
-Como rodar:
-1. Abrir o PowerShell na pasta do projeto
+2) LOGIQ 2.0 | QAOA simulado
+- Novo módulo selecionável no menu lateral.
+- Roda uma simulação QAOA local em cenário reduzido, usando statevector.
+- Usa Base + até 3 pontos de entrega para manter a simulação leve e explicável.
+- Compara o melhor resultado clássico do recorte com o resultado QAOA simulado.
+- Mostra painel de proximidade em azul, ranking clássico do recorte e probabilidades do QAOA.
+
+Leitura honesta:
+- O LOGIQ 2.0 executa uma simulação QAOA local, ou seja, já há uma camada quântica simulada real.
+- Ele ainda não roda em hardware quântico de nuvem.
+- Ele ainda não promete superar algoritmos clássicos em rotas reais complexas.
+- O valor está em demonstrar a ponte técnica entre logística, otimização clássica e algoritmos quânticos.
+
+Como rodar localmente:
+1. Abrir o PowerShell na pasta do projeto.
 2. Ativar o ambiente virtual:
    .\.venv\Scripts\Activate.ps1
 3. Instalar dependências:
    pip install -r requirements.txt
-4. Rodar:
+4. Rodar o sistema:
    streamlit run app.py
 
-Observação:
-Para o Google Maps funcionar bem, a aba Pontos da planilha precisa trazer endereço real ou latitude/longitude.
+Como usar:
+- No menu lateral, escolha "Módulo do sistema".
+- Use "LOGIQ 1.0 | Rotas operacionais" para a solução de rota.
+- Use "LOGIQ 2.0 | QAOA simulado" para testar a camada quântica simulada.
 
-
-V4.5: Remove textos de segurança pós-quântica, simplifica o ciclo infinito e inclui a rota recomendada dentro do ciclo visual.
-
-
-V4.7
-- Substitui o ciclo visual anterior por uma imagem limpa em formato de fluxo contínuo.
-- Separa a melhor decisão e o ciclo de decisão em blocos distintos.
-- Mantém o detalhamento operacional da rota apenas nas abas próprias.
+Observações:
+- Para o Google Maps funcionar bem, a aba Pontos da planilha precisa trazer endereço real ou latitude/longitude.
+- Para o QAOA simulado, o sistema usa um recorte pequeno de pontos, porque simulação quântica cresce rapidamente em complexidade.

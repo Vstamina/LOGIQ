@@ -10,9 +10,10 @@ import networkx as nx
 import pandas as pd
 import streamlit as st
 from PIL import Image
+from modules.qaoa_engine import run_qaoa_demo
 
 # ============================================================
-# LOGIQ MVP V4.8
+# LOGIQ MVP V5.0 — módulo 2.0 com QAOA simulado local
 # ============================================================
 
 st.set_page_config(
@@ -1119,6 +1120,141 @@ def build_metrics_comparison_chart(best):
     plt.tight_layout()
     return fig
 
+
+
+def render_qaoa_2_module(graph, hub):
+    """Renderiza o novo módulo LOGIQ 2.0 sem alterar o módulo operacional 1.0."""
+    st.markdown('<div class="section-title">LOGIQ 2.0 | Simulação QAOA</div>', unsafe_allow_html=True)
+    st.markdown(
+        '<div class="section-subtitle">Este módulo roda uma simulação local de QAOA em um cenário reduzido. Ele não substitui a rota operacional; mostra a ponte técnica para computação quântica aplicada.</div>',
+        unsafe_allow_html=True,
+    )
+
+    st.markdown(
+        """
+        <div class="business-note">
+        <b>Leitura honesta:</b> aqui existe sim uma simulação quântica de verdade, feita por statevector local.
+        Ela usa uma camada QAOA para testar combinações em um problema pequeno. Ainda não é execução em hardware quântico
+        e ainda não promete superar métodos clássicos em rotas reais complexas.
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    col_a, col_b, col_c = st.columns(3)
+    with col_a:
+        alpha_q = st.slider(
+            "Peso do tempo no QAOA",
+            0.0, 1.0, 0.5, 0.05,
+            help="Aumente se quiser que a simulação dê mais importância ao tempo de deslocamento.",
+        )
+    with col_b:
+        beta_q = st.slider(
+            "Peso da emissão no QAOA",
+            0.0, 1.0, 0.5, 0.05,
+            help="Aumente se quiser que a simulação dê mais importância à emissão estimada.",
+        )
+    with col_c:
+        p_layers = st.selectbox(
+            "Profundidade p",
+            [1, 2],
+            index=0,
+            help="Número de camadas do circuito QAOA. Para MVP local, p=1 é mais rápido e estável.",
+        )
+
+    qres = run_qaoa_demo(graph, hub, alpha=alpha_q, beta_weight=beta_q, max_nodes=4, p=int(p_layers), grid_points=15)
+
+    st.markdown("### Cenário reduzido usado na simulação")
+    st.write(" → ".join(display_name(n) for n in qres.nodes))
+    st.caption("O QAOA foi aplicado em Base + até 3 pontos de entrega para manter a simulação local leve e explicável.")
+
+    m1, m2, m3, m4 = st.columns(4)
+    m1.metric("Melhor clássico", qres.exact_bitstring, f"nota {qres.exact_cost:.3f}")
+    m2.metric("Resultado QAOA", qres.qaoa_bitstring, f"nota {qres.qaoa_cost:.3f}")
+    m3.metric("Probabilidade", f"{qres.qaoa_probability*100:.1f}%")
+    m4.metric("Proximidade", f"{qres.closeness_percent:.0f}%")
+
+    render_qaoa_speedometer(qres.closeness_percent, qres.exact_cost, qres.qaoa_cost, qres.worst_valid_cost)
+
+    st.markdown(
+        f"""
+        <div class="big-card">
+            <h3 style="font-size:26px;color:#0B1F33;margin-bottom:10px;">O que aconteceu nesta simulação?</h3>
+            <p style="font-size:18px;color:#334155;line-height:1.6;">
+            O sistema reduziu o problema para poucos pontos, transformou as combinações em estados binários e executou uma busca QAOA simulada.
+            A melhor solução clássica para esse recorte foi <b>{qres.exact_bitstring}</b>. O QAOA simulado destacou <b>{qres.qaoa_bitstring}</b>.
+            </p>
+            <p style="font-size:18px;color:#334155;line-height:1.6;">
+            Em linguagem de negócio: esta aba mostra como a LOGIQ pode comparar uma solução clássica com uma camada quântica simulada.
+            Isso é uma evolução técnica real, mas ainda em escala reduzida.
+            </p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    t1, t2 = st.tabs(["Ranking clássico do recorte", "Probabilidades QAOA"])
+    with t1:
+        st.dataframe(qres.valid_ranking.head(20), width="stretch", hide_index=True)
+    with t2:
+        st.dataframe(qres.probabilities.head(20), width="stretch", hide_index=True)
+        st.pyplot(plot_qaoa_probabilities(qres.probabilities))
+
+
+def render_qaoa_speedometer(closeness, exact_cost, qaoa_cost, worst_cost):
+    """Painel simples em azul para mostrar proximidade do resultado QAOA em relação ao melhor clássico."""
+    cx, cy, radius = 220, 190, 145
+    needle_angle = 180 - (float(closeness) * 1.8)
+    nx_, ny_ = _polar_to_cartesian(cx, cy, radius - 20, needle_angle)
+    colors = ["#DBEAFE", "#BFDBFE", "#93C5FD", "#60A5FA", "#38BDF8", "#0EA5E9", "#005CA9"]
+    paths = []
+    seg_span = 180 / len(colors)
+    for idx, color in enumerate(colors):
+        start_angle = 180 - (idx * seg_span) - 3
+        end_angle = 180 - ((idx + 1) * seg_span) + 3
+        paths.append(f'<path d="{_svg_arc_path(cx, cy, radius, start_angle, end_angle)}" fill="none" stroke="{color}" stroke-width="28" stroke-linecap="round"/>')
+    svg_segments = "".join(paths)
+    st.markdown(
+        f"""
+        <div class="quality-panel">
+            <div class="quality-panel-title">Painel de proximidade do QAOA</div>
+            <div class="quality-panel-subtitle">Quanto mais à direita, mais perto o resultado QAOA ficou da melhor solução clássica do recorte.</div>
+            <div class="speedometer-wrap">
+                <svg class="speedometer-svg" viewBox="0 0 440 245" role="img" aria-label="Proximidade do QAOA">
+                    <text x="28" y="224" font-size="14" font-weight="700" fill="#64748B">Longe</text>
+                    <text x="190" y="55" font-size="14" font-weight="700" fill="#64748B">Médio</text>
+                    <text x="360" y="224" font-size="14" font-weight="700" fill="#64748B">Perto</text>
+                    {svg_segments}
+                    <line x1="{cx}" y1="{cy}" x2="{nx_:.2f}" y2="{ny_:.2f}" stroke="#0B1F33" stroke-width="8" stroke-linecap="round"/>
+                    <circle cx="{cx}" cy="{cy}" r="17" fill="#0B1F33"/>
+                    <circle cx="{cx}" cy="{cy}" r="8" fill="#FFFFFF"/>
+                    <text x="{cx}" y="{cy+42}" text-anchor="middle" font-size="30" font-weight="900" fill="#0B1F33">{closeness:.0f}%</text>
+                </svg>
+                <div class="speedometer-text">
+                    <span class="quality-badge">QAOA simulado local</span><br><br>
+                    <b>Melhor clássico do recorte:</b> {exact_cost:.3f}<br>
+                    <b>Resultado QAOA:</b> {qaoa_cost:.3f}<br>
+                    <b>Pior válido do recorte:</b> {worst_cost:.3f}<br><br>
+                    <b>Regra:</b> aqui a nota menor é melhor. O painel mostra proximidade, não custo em reais.
+                </div>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def plot_qaoa_probabilities(probabilities_df):
+    top = probabilities_df.head(10).copy()
+    fig, ax = plt.subplots(figsize=(10, 4.8))
+    ax.bar(top["bitstring"], top["probabilidade"] * 100)
+    ax.set_title("Estados mais prováveis no QAOA simulado", fontsize=17, fontweight="bold")
+    ax.set_xlabel("Bitstring")
+    ax.set_ylabel("Probabilidade (%)")
+    ax.grid(axis="y", linestyle="--", alpha=0.3)
+    plt.tight_layout()
+    return fig
+
 # ============================================================
 # SIDEBAR
 # ============================================================
@@ -1146,6 +1282,15 @@ with st.sidebar.expander("ℹ️ O que este painel faz?", expanded=False):
         A ideia é que uma pessoa de negócios entenda a decisão sem precisar saber programar.
         """
     )
+
+app_module = st.sidebar.radio(
+    "Módulo do sistema",
+    ["LOGIQ 1.0 | Rotas operacionais", "LOGIQ 2.0 | QAOA simulado"],
+    help=(
+        "Escolha o modo de uso. O módulo 1.0 mantém a rota operacional. "
+        "O módulo 2.0 roda uma simulação QAOA local em cenário reduzido, sem substituir a rota principal."
+    ),
+)
 
 if "upload_key" not in st.session_state:
     st.session_state.upload_key = 0
@@ -1242,6 +1387,10 @@ try:
         """,
         unsafe_allow_html=True,
     )
+
+    if app_module == "LOGIQ 2.0 | QAOA simulado":
+        render_qaoa_2_module(graph, hub)
+        st.stop()
 
     tabs = st.tabs([
         "Visão da solução",
