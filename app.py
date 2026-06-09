@@ -1,0 +1,1119 @@
+import base64
+import itertools
+import os
+import unicodedata
+from urllib.parse import quote_plus
+
+import matplotlib.pyplot as plt
+import networkx as nx
+import pandas as pd
+import streamlit as st
+from PIL import Image
+
+# ============================================================
+# LOGIQ MVP V4.2
+# ============================================================
+
+st.set_page_config(
+    page_title="LOGIQ | Otimização de Rotas",
+    page_icon="🚚",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
+
+DEFAULT_EXCEL_PATH = os.path.join("data", "logiq_planilha_completa_mvp.xlsx")
+DEFAULT_VAN_IMAGE = os.path.join("assets", "van_logiq.png")
+
+# ============================================================
+# CSS
+# ============================================================
+
+st.markdown(
+    """
+    <style>
+    .block-container {
+        padding-top: 1.2rem;
+        padding-bottom: 2rem;
+        max-width: 1580px;
+        padding-right: 430px;
+        padding-left: 3rem;
+    }
+
+    /* Sidebar no lado direito, estilo leitura da direita para esquerda */
+    section[data-testid="stSidebar"] {
+        position: fixed !important;
+        right: 0 !important;
+        left: auto !important;
+        top: 0 !important;
+        height: 100vh !important;
+        z-index: 999999 !important;
+        border-left: 1px solid #DCEAF5 !important;
+        border-right: none !important;
+        box-shadow: -8px 0 24px rgba(11,31,51,0.08);
+        direction: ltr;
+    }
+
+    section[data-testid="stSidebar"] > div {
+        width: 405px !important;
+        min-width: 405px !important;
+        background: #EEF3F8;
+        padding-top: 2rem;
+    }
+
+    [data-testid="collapsedControl"], [data-testid="stSidebarCollapsedControl"] {
+        right: 18px !important;
+        left: auto !important;
+    }
+
+    .hero-title {
+        font-size: 58px;
+        font-weight: 900;
+        color: #FFFFFF;
+        margin-bottom: 10px;
+        line-height: 1.05;
+        letter-spacing: 0.5px;
+    }
+
+    .hero-subtitle {
+        font-size: 24px;
+        color: #DCEAF5;
+        margin-bottom: 22px;
+        line-height: 1.45;
+        max-width: 980px;
+    }
+
+    .chip {
+        display: inline-block;
+        padding: 10px 17px;
+        border-radius: 999px;
+        background: rgba(255,255,255,0.13);
+        border: 1px solid rgba(255,255,255,0.22);
+        color: #FFFFFF;
+        font-size: 16px;
+        font-weight: 700;
+        margin-right: 10px;
+        margin-bottom: 10px;
+    }
+
+    .hero-card {
+        width: 100%;
+        background: linear-gradient(90deg, #041A2F 0%, #0B3559 100%);
+        border-radius: 30px;
+        padding: 34px 40px;
+        display: flex;
+        align-items: center;
+        gap: 34px;
+        min-height: 245px;
+        box-shadow: 0px 10px 30px rgba(11,31,51,0.16);
+        margin-bottom: 18px;
+        overflow: hidden;
+    }
+
+    .hero-van-wrap {
+        flex: 0 0 280px;
+        height: 175px;
+        border-radius: 22px;
+        background: rgba(255,255,255,0.96);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 10px;
+        box-shadow: inset 0px 0px 0px 1px rgba(255,255,255,0.35), 0px 8px 18px rgba(0,0,0,0.14);
+    }
+
+    .hero-van-wrap img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        border-radius: 16px;
+    }
+
+    .hero-content {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .status-card {
+        background: #FFFBEA;
+        border: 1px solid #F3D66B;
+        color: #624600;
+        border-radius: 18px;
+        padding: 18px 22px;
+        font-size: 18px;
+        line-height: 1.65;
+        margin-bottom: 20px;
+    }
+
+    .status-card strong {
+        color: #0B1F33;
+    }
+
+    @media (max-width: 1100px) {
+        .hero-card {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+        .hero-van-wrap {
+            width: 100%;
+            max-width: 360px;
+        }
+    }
+
+    .section-title {
+        font-size: 36px;
+        font-weight: 900;
+        color: #0B1F33;
+        margin-top: 12px;
+        margin-bottom: 10px;
+        line-height: 1.15;
+    }
+
+    .section-subtitle {
+        font-size: 20px;
+        color: #475569;
+        margin-bottom: 22px;
+        line-height: 1.55;
+        max-width: 1100px;
+    }
+
+    .big-card {
+        background: #FFFFFF;
+        border: 1px solid #DCEAF5;
+        border-radius: 20px;
+        padding: 26px;
+        box-shadow: 0px 4px 18px rgba(11,31,51,0.07);
+        margin-bottom: 20px;
+    }
+
+    .route-card {
+        background: linear-gradient(180deg, #FFFFFF 0%, #F8FBFE 100%);
+        border: 2px solid #DCEAF5;
+        border-radius: 22px;
+        padding: 28px;
+        box-shadow: 0px 5px 20px rgba(11,31,51,0.08);
+        margin-bottom: 22px;
+    }
+
+    .metric-card {
+        background: #FFFFFF;
+        border: 1px solid #DCEAF5;
+        border-radius: 17px;
+        padding: 22px;
+        box-shadow: 0px 4px 14px rgba(11,31,51,0.05);
+        text-align: center;
+        height: 100%;
+    }
+
+    .metric-label {
+        font-size: 17px;
+        color: #475569;
+        margin-bottom: 8px;
+    }
+
+    .metric-value {
+        font-size: 31px;
+        font-weight: 900;
+        color: #0B1F33;
+    }
+
+    .route-sequence {
+        font-size: 23px;
+        line-height: 1.9;
+        color: #005CA9;
+        font-weight: 800;
+        word-spacing: 3px;
+    }
+
+    .business-note {
+        background: #F8FBFE;
+        border-left: 6px solid #005CA9;
+        padding: 18px 20px;
+        border-radius: 12px;
+        color: #0B1F33;
+        font-size: 18px;
+        line-height: 1.55;
+        margin-top: 12px;
+        margin-bottom: 20px;
+    }
+
+    .info-box {
+        background: #FFFBEA;
+        border: 1px solid #F6E7A1;
+        color: #7A5B00;
+        border-radius: 12px;
+        padding: 15px 18px;
+        font-size: 17px;
+        line-height: 1.5;
+        margin-bottom: 16px;
+    }
+
+    .step-card {
+        background: #FFFFFF;
+        border: 1px solid #DCEAF5;
+        border-radius: 18px;
+        padding: 20px;
+        box-shadow: 0px 4px 14px rgba(11,31,51,0.05);
+        min-height: 205px;
+        margin-bottom: 12px;
+    }
+
+    .step-number {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: #005CA9;
+        color: #FFFFFF;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 900;
+        margin-bottom: 12px;
+        font-size: 19px;
+    }
+
+    .step-title {
+        font-size: 23px;
+        font-weight: 900;
+        color: #0B1F33;
+        margin-bottom: 10px;
+    }
+
+    .step-body {
+        font-size: 17px;
+        color: #475569;
+        line-height: 1.55;
+    }
+
+    .sidebar-callout {
+        background: #FFFFFF;
+        border: 1px solid #DCEAF5;
+        border-radius: 14px;
+        padding: 14px 16px;
+        color: #0B1F33;
+        font-size: 15px;
+        line-height: 1.5;
+        margin-bottom: 12px;
+    }
+
+    .gmaps-button a {
+        display: inline-block;
+        background: #005CA9;
+        color: #FFFFFF !important;
+        padding: 13px 18px;
+        border-radius: 12px;
+        text-decoration: none;
+        font-weight: 800;
+        font-size: 17px;
+        margin-top: 6px;
+    }
+
+    .explain-box {
+        background: #FFFFFF;
+        border: 1px solid #DCEAF5;
+        border-radius: 16px;
+        padding: 18px 20px;
+        color: #0B1F33;
+        font-size: 17px;
+        line-height: 1.65;
+        margin: 12px 0 18px 0;
+        box-shadow: 0px 3px 12px rgba(11,31,51,0.04);
+    }
+
+    .pqc-card {
+        background: linear-gradient(180deg, #F8FBFE 0%, #FFFFFF 100%);
+        border: 2px solid #BFD7EA;
+        border-radius: 18px;
+        padding: 22px;
+        color: #0B1F33;
+        font-size: 17px;
+        line-height: 1.65;
+        margin: 18px 0;
+        box-shadow: 0px 4px 14px rgba(11,31,51,0.05);
+    }
+
+    .simple-title {
+        font-size: 22px;
+        font-weight: 900;
+        color: #0B1F33;
+        margin-bottom: 8px;
+    }
+
+    div[data-testid="stMetric"] {
+        background: #FFFFFF;
+        padding: 16px;
+        border-radius: 15px;
+        border: 1px solid #DCEAF5;
+        box-shadow: 0px 3px 12px rgba(11,31,51,0.05);
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
+# ============================================================
+# FUNÇÕES
+# ============================================================
+
+def normalize_text(value):
+    value = str(value).strip().lower()
+    value = unicodedata.normalize("NFKD", value)
+    value = "".join(c for c in value if not unicodedata.combining(c))
+    value = value.replace("₂", "2").replace("²", "2")
+    value = value.replace(" ", "_").replace("-", "_").replace("/", "_")
+    return value
+
+
+def display_name(point):
+    if str(point).strip().lower() == "hub":
+        return "Base"
+    return str(point)
+
+
+def display_name_full(point):
+    if str(point).strip().lower() == "hub":
+        return "Base (Hub)"
+    return str(point)
+
+
+def display_route(route_list):
+    return " → ".join(display_name(p) for p in route_list)
+
+
+def format_sequence(route_list):
+    return " → ".join([f"{i+1}. {display_name(p)}" for i, p in enumerate(route_list)])
+
+
+def find_column(df, options):
+    normalized = {normalize_text(col): col for col in df.columns}
+    for option in options:
+        norm_opt = normalize_text(option)
+        if norm_opt in normalized:
+            return normalized[norm_opt]
+    for norm_col, original_col in normalized.items():
+        for option in options:
+            if normalize_text(option) in norm_col:
+                return original_col
+    return None
+
+
+def load_routes(uploaded_file=None):
+    if uploaded_file is not None:
+        excel = pd.ExcelFile(uploaded_file)
+        source_name = "planilha enviada por você"
+    else:
+        excel = pd.ExcelFile(DEFAULT_EXCEL_PATH)
+        source_name = "base simulada de demonstração"
+
+    chosen_sheet = None
+    chosen_df = None
+    for sheet in excel.sheet_names:
+        temp = pd.read_excel(excel, sheet_name=sheet)
+        cols = [normalize_text(c) for c in temp.columns]
+        if any("origem" in c for c in cols) and any("destino" in c for c in cols):
+            chosen_sheet = sheet
+            chosen_df = temp
+            break
+
+    if chosen_df is None:
+        raise ValueError("Não encontrei uma aba com origem e destino.")
+
+    df = chosen_df.copy()
+    col_origin = find_column(df, ["origem"])
+    col_destiny = find_column(df, ["destino"])
+    col_distance = find_column(df, ["distancia_km", "distancia", "km"])
+    col_time = find_column(df, ["tempo_min", "tempo", "minutos"])
+    col_cost = find_column(df, ["custo_rs", "custo", "r$"])
+    col_co2 = find_column(df, ["co2_estimado", "co2", "carbono", "emissao", "emissão"])
+
+    missing = []
+    for label, col in [
+        ("origem", col_origin),
+        ("destino", col_destiny),
+        ("distancia_km", col_distance),
+        ("tempo_min", col_time),
+        ("custo_rs", col_cost),
+        ("co2_estimado", col_co2),
+    ]:
+        if col is None:
+            missing.append(label)
+    if missing:
+        raise ValueError("Colunas faltando: " + ", ".join(missing))
+
+    routes = pd.DataFrame({
+        "origem": df[col_origin].astype(str),
+        "destino": df[col_destiny].astype(str),
+        "distancia_km": pd.to_numeric(df[col_distance], errors="coerce"),
+        "tempo_min": pd.to_numeric(df[col_time], errors="coerce"),
+        "custo_rs": pd.to_numeric(df[col_cost], errors="coerce"),
+        "co2": pd.to_numeric(df[col_co2], errors="coerce"),
+    })
+    routes = routes.dropna()
+    routes = routes[routes["origem"] != routes["destino"]]
+    return routes, chosen_sheet, source_name
+
+
+def load_points_meta(uploaded_file=None):
+    """
+    Lê a aba Pontos, quando existir, para buscar nomes amigáveis e endereços/coordenadas para Google Maps.
+    O sistema continua calculando por id, mas o Maps precisa de endereço real ou latitude/longitude.
+    """
+    try:
+        if uploaded_file is not None:
+            excel = pd.ExcelFile(uploaded_file)
+        else:
+            excel = pd.ExcelFile(DEFAULT_EXCEL_PATH)
+
+        point_sheet = None
+        for sheet in excel.sheet_names:
+            if normalize_text(sheet) in ["pontos", "locais", "clientes"]:
+                point_sheet = sheet
+                break
+
+        if point_sheet is None:
+            return {}
+
+        df = pd.read_excel(excel, sheet_name=point_sheet)
+        col_id = find_column(df, ["id", "ponto", "codigo", "código", "nome"])
+        col_label = find_column(df, ["nome_exibicao", "nome", "label", "descricao", "descrição"])
+        col_address = find_column(df, ["endereco_maps", "endereço_maps", "endereco", "endereço", "maps_query"])
+        col_lat = find_column(df, ["latitude", "lat"])
+        col_lon = find_column(df, ["longitude", "lon", "lng"])
+
+        if col_id is None:
+            return {}
+
+        meta = {}
+        for _, row in df.iterrows():
+            point_id = str(row[col_id]).strip()
+            label = str(row[col_label]).strip() if col_label is not None and pd.notna(row[col_label]) else display_name(point_id)
+            maps_query = None
+            if col_lat is not None and col_lon is not None and pd.notna(row[col_lat]) and pd.notna(row[col_lon]):
+                maps_query = f"{row[col_lat]},{row[col_lon]}"
+            elif col_address is not None and pd.notna(row[col_address]):
+                maps_query = str(row[col_address]).strip()
+
+            meta[point_id] = {"label": label, "maps_query": maps_query}
+        return meta
+    except Exception:
+        return {}
+
+
+def map_query_for(point, points_meta):
+    info = points_meta.get(str(point), {}) if points_meta else {}
+    return info.get("maps_query") or display_name(point)
+
+
+def build_graph(routes):
+    graph = nx.Graph()
+    for _, row in routes.iterrows():
+        graph.add_edge(
+            row["origem"],
+            row["destino"],
+            distancia_km=float(row["distancia_km"]),
+            tempo_min=float(row["tempo_min"]),
+            custo_rs=float(row["custo_rs"]),
+            co2=float(row["co2"]),
+        )
+    return graph
+
+
+def route_metrics(graph, route):
+    totals = {"distancia_km": 0.0, "tempo_min": 0.0, "custo_rs": 0.0, "co2": 0.0}
+    for start, end in zip(route[:-1], route[1:]):
+        if not graph.has_edge(start, end):
+            return None
+        edge = graph[start][end]
+        totals["distancia_km"] += edge["distancia_km"]
+        totals["tempo_min"] += edge["tempo_min"]
+        totals["custo_rs"] += edge["custo_rs"]
+        totals["co2"] += edge["co2"]
+    return totals
+
+
+def calculate_score(metrics, criterion, max_values, weights):
+    if criterion == "Andar menos":
+        return metrics["distancia_km"]
+    if criterion == "Chegar mais rápido":
+        return metrics["tempo_min"]
+    if criterion == "Gastar menos":
+        return metrics["custo_rs"]
+    if criterion == "Emitir menos CO₂":
+        return metrics["co2"]
+
+    score = 0.0
+    score += weights["distancia_km"] * (metrics["distancia_km"] / max_values["distancia_km"])
+    score += weights["tempo_min"] * (metrics["tempo_min"] / max_values["tempo_min"])
+    score += weights["custo_rs"] * (metrics["custo_rs"] / max_values["custo_rs"])
+    score += weights["co2"] * (metrics["co2"] / max_values["co2"])
+    return score
+
+
+def find_best_route(graph, hub, criterion, weights):
+    clients = [node for node in graph.nodes if node != hub]
+    if len(clients) > 8:
+        raise ValueError("Para esta versão do MVP, use até 8 pontos de entrega.")
+
+    records = []
+    for permutation in itertools.permutations(clients):
+        route = [hub] + list(permutation) + [hub]
+        metrics = route_metrics(graph, route)
+        if metrics is not None:
+            records.append({
+                "rota_lista": route,
+                "rota": display_route(route),
+                "distancia_km": metrics["distancia_km"],
+                "tempo_min": metrics["tempo_min"],
+                "custo_rs": metrics["custo_rs"],
+                "co2": metrics["co2"],
+            })
+
+    ranking = pd.DataFrame(records)
+    if ranking.empty:
+        return None, ranking
+
+    max_values = {
+        "distancia_km": ranking["distancia_km"].max(),
+        "tempo_min": ranking["tempo_min"].max(),
+        "custo_rs": ranking["custo_rs"].max(),
+        "co2": ranking["co2"].max(),
+    }
+    ranking["score"] = ranking.apply(
+        lambda row: calculate_score(
+            {"distancia_km": row["distancia_km"], "tempo_min": row["tempo_min"], "custo_rs": row["custo_rs"], "co2": row["co2"]},
+            criterion,
+            max_values,
+            weights,
+        ),
+        axis=1,
+    )
+    ranking = ranking.sort_values("score").reset_index(drop=True)
+    ranking.insert(0, "opcao", [f"Rota {i+1}" for i in range(len(ranking))])
+    return ranking.iloc[0].to_dict(), ranking
+
+
+def quantum_inspired_demo(graph, alpha, beta):
+    nodes = list(graph.nodes)
+    records = []
+    for bits_tuple in itertools.product([0, 1], repeat=len(nodes)):
+        if len(set(bits_tuple)) == 1:
+            continue
+        bitstring = "".join(str(bit) for bit in bits_tuple)
+        cost = 0.0
+        active_edges = []
+        for start, end, data in graph.edges(data=True):
+            if bits_tuple[nodes.index(start)] != bits_tuple[nodes.index(end)]:
+                cost += alpha * data["tempo_min"] + beta * data["co2"]
+                active_edges.append(f"{display_name(start)} ↔ {display_name(end)}")
+        records.append({"bitstring": bitstring, "custo_ponderado": round(cost, 4), "arestas_ativadas": ", ".join(active_edges)})
+    df = pd.DataFrame(records).sort_values("custo_ponderado").reset_index(drop=True)
+    df.insert(0, "opcao_quantica", [f"Bitstring {i+1}" for i in range(len(df))])
+    return df
+
+
+def google_maps_url(route_list, points_meta=None):
+    if not route_list or len(route_list) < 2:
+        return "https://www.google.com/maps"
+    origin = quote_plus(map_query_for(route_list[0], points_meta))
+    destination = quote_plus(map_query_for(route_list[-1], points_meta))
+    waypoints = "|".join(quote_plus(map_query_for(p, points_meta)) for p in route_list[1:-1])
+    return f"https://www.google.com/maps/dir/?api=1&origin={origin}&destination={destination}&waypoints={waypoints}&travelmode=driving"
+
+
+def build_segments_table(graph, route_list):
+    rows = []
+    for i, (start, end) in enumerate(zip(route_list[:-1], route_list[1:]), start=1):
+        edge = graph[start][end]
+        rows.append({
+            "trecho": f"Trecho {i}",
+            "saída": display_name(start),
+            "chegada": display_name(end),
+            "distância km": round(edge["distancia_km"], 2),
+            "tempo min": round(edge["tempo_min"], 1),
+            "custo R$": round(edge["custo_rs"], 2),
+            "CO₂": round(edge["co2"], 2),
+        })
+    return pd.DataFrame(rows)
+
+
+def load_van_image():
+    if os.path.exists(DEFAULT_VAN_IMAGE):
+        return Image.open(DEFAULT_VAN_IMAGE)
+    return None
+
+
+def image_to_base64(path):
+    if not os.path.exists(path):
+        return None
+    with open(path, "rb") as image_file:
+        return base64.b64encode(image_file.read()).decode("utf-8")
+
+
+def draw_operator_route(graph, route_list):
+    fig, ax = plt.subplots(figsize=(14, 8))
+
+    # Layout fixo para leitura mais organizada quando usamos a base simulada.
+    known = {"Hub", "Cliente A", "Cliente B", "Cliente C", "Cliente D", "Cliente E", "Cliente F"}
+    if known.issubset(set(graph.nodes)):
+        pos = {
+            "Hub": (-1.1, 0.0),
+            "Cliente A": (-0.55, -0.78),
+            "Cliente B": (-0.48, 0.78),
+            "Cliente C": (0.30, -0.82),
+            "Cliente E": (0.38, 0.02),
+            "Cliente F": (1.10, 0.72),
+            "Cliente D": (1.18, -0.22),
+        }
+    else:
+        pos = nx.spring_layout(graph, seed=18, k=1.25)
+
+    route_edges = list(zip(route_list[:-1], route_list[1:]))
+    route_nodes = list(dict.fromkeys(route_list))
+    segment_colors = ["#005CA9", "#1F7A8C", "#2A9D8F", "#E76F51", "#7B2CBF", "#F4A261", "#264653", "#118AB2", "#EF476F"]
+
+    # Desenha só a rota escolhida no painel do operador.
+    for node in route_nodes:
+        x, y = pos[node]
+        color = "#005CA9" if node == "Hub" else "#DCEAF5"
+        font_color = "white" if node == "Hub" else "#0B1F33"
+        ax.scatter([x], [y], s=1800, color=color, edgecolor="#0B1F33", linewidth=2.5, zorder=10)
+        ax.text(x, y, display_name(node), ha="center", va="center", fontsize=13, fontweight="bold", color=font_color, zorder=11)
+
+    # Trechos com cores diferentes e números afastados da linha.
+    for i, (start, end) in enumerate(route_edges, start=1):
+        color = segment_colors[(i - 1) % len(segment_colors)]
+        x1, y1 = pos[start]
+        x2, y2 = pos[end]
+        dx = x2 - x1
+        dy = y2 - y1
+        mx = x1 + dx * 0.52
+        my = y1 + dy * 0.52
+        norm = max((dx ** 2 + dy ** 2) ** 0.5, 0.001)
+        offx = -dy / norm * 0.06
+        offy = dx / norm * 0.06
+
+        ax.annotate(
+            "",
+            xy=(x2, y2),
+            xytext=(x1, y1),
+            arrowprops=dict(arrowstyle="-|>", lw=5.0, color=color, shrinkA=22, shrinkB=24, mutation_scale=24),
+            zorder=6,
+        )
+        ax.text(
+            mx + offx,
+            my + offy,
+            str(i),
+            fontsize=12,
+            fontweight="bold",
+            color="white",
+            ha="center",
+            va="center",
+            bbox=dict(boxstyle="circle,pad=0.35", facecolor=color, edgecolor="white", linewidth=1.8),
+            zorder=20,
+        )
+        edge = graph[start][end]
+        ax.text(
+            mx - offx,
+            my - offy,
+            f"{edge['distancia_km']:.1f} km",
+            fontsize=10,
+            color="#0B1F33",
+            ha="center",
+            va="center",
+            bbox=dict(boxstyle="round,pad=0.18", facecolor="white", edgecolor="#DCEAF5", alpha=0.95),
+            zorder=19,
+        )
+
+    # Paradas nos nós, sem poluir a linha.
+    step_map = {}
+    for idx, point in enumerate(route_list, start=1):
+        step_map.setdefault(point, []).append(idx)
+    for node, steps in step_map.items():
+        x, y = pos[node]
+        label = "/".join(str(s) for s in steps)
+        ax.text(
+            x,
+            y - 0.13,
+            f"Parada {label}",
+            fontsize=10,
+            color="#0B1F33",
+            ha="center",
+            va="center",
+            bbox=dict(boxstyle="round,pad=0.24", facecolor="#FFFFFF", edgecolor="#005CA9", linewidth=1.2),
+            zorder=21,
+        )
+
+    ax.set_title("Rota recomendada | sequência de execução", fontsize=25, fontweight="bold", color="#0B1F33", pad=18)
+    ax.axis("off")
+    ax.margins(0.18)
+    return fig
+
+
+def build_top_routes_chart(ranking):
+    top10 = ranking.head(10).copy()
+    fig, ax = plt.subplots(figsize=(10, 5))
+    ax.bar(top10["opcao"], top10["score"])
+    ax.set_title("Top 10 rotas por score", fontsize=18, fontweight="bold")
+    ax.set_ylabel("Score")
+    ax.grid(axis="y", linestyle="--", alpha=0.3)
+    plt.tight_layout()
+    return fig
+
+
+def build_metrics_comparison_chart(best):
+    labels = ["Distância", "Tempo", "Custo", "CO₂"]
+    values = [best["distancia_km"], best["tempo_min"], best["custo_rs"], best["co2"]]
+    fig, ax = plt.subplots(figsize=(8, 4))
+    ax.bar(labels, values)
+    ax.set_title("Indicadores da rota escolhida", fontsize=17, fontweight="bold")
+    ax.grid(axis="y", linestyle="--", alpha=0.3)
+    plt.tight_layout()
+    return fig
+
+# ============================================================
+# SIDEBAR
+# ============================================================
+
+st.sidebar.markdown("## Decisão da rota")
+st.sidebar.markdown(
+    """
+    <div class="sidebar-callout">
+    <b>Vamos escolher a melhor rota juntos.</b><br><br>
+    Diga o que importa mais hoje: chegar rápido, gastar menos, andar menos, emitir menos CO₂ ou equilibrar tudo.<br><br>
+    A LOGIQ faz as contas e entrega uma rota explicada, pronta para decisão e operação.
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+
+with st.sidebar.expander("ℹ️ O que este painel faz?", expanded=False):
+    st.write(
+        """
+        Ele transforma uma pergunta técnica em uma escolha simples de negócio.
+
+        Você escolhe a prioridade da operação. A LOGIQ compara as rotas possíveis,
+        calcula os impactos e mostra a recomendação de forma explicável.
+
+        A ideia é que uma pessoa de negócios entenda a decisão sem precisar saber programar.
+        """
+    )
+
+uploaded_file = st.sidebar.file_uploader(
+    "Subir planilha Excel",
+    type=["xlsx", "xls"],
+    help="Envie uma base real de rotas. Se nada for enviado, usamos uma base simulada para demonstração.",
+)
+
+criterion = st.sidebar.selectbox(
+    "O que você quer melhorar hoje?",
+    ["Equilibrar tudo", "Andar menos", "Chegar mais rápido", "Gastar menos", "Emitir menos CO₂"],
+    help=(
+        "Esta escolha orienta a recomendação da rota. "
+        "Por exemplo: se você escolher 'Gastar menos', o sistema favorece rotas de menor custo."
+    ),
+)
+
+st.sidebar.markdown("### Ajuste fino")
+st.sidebar.caption("Use os pesos quando quiser calibrar a decisão com mais detalhe.")
+
+peso_distancia = st.sidebar.slider("Distância", 0.0, 1.0, 0.25, 0.05, help="Aumente se quiser favorecer trajetos mais curtos.")
+peso_tempo = st.sidebar.slider("Tempo", 0.0, 1.0, 0.25, 0.05, help="Aumente se quiser favorecer entregas mais rápidas.")
+peso_custo = st.sidebar.slider("Custo", 0.0, 1.0, 0.25, 0.05, help="Aumente se quiser favorecer menor custo operacional.")
+peso_co2 = st.sidebar.slider("CO₂", 0.0, 1.0, 0.25, 0.05, help="Aumente se quiser favorecer menor emissão estimada.")
+
+peso_total = peso_distancia + peso_tempo + peso_custo + peso_co2
+if peso_total == 0:
+    weights = {"distancia_km": 0.25, "tempo_min": 0.25, "custo_rs": 0.25, "co2": 0.25}
+else:
+    weights = {
+        "distancia_km": peso_distancia / peso_total,
+        "tempo_min": peso_tempo / peso_total,
+        "custo_rs": peso_custo / peso_total,
+        "co2": peso_co2 / peso_total,
+    }
+
+# ============================================================
+# EXECUÇÃO
+# ============================================================
+
+try:
+    routes, sheet_name, source_name = load_routes(uploaded_file)
+    points_meta = load_points_meta(uploaded_file)
+    graph = build_graph(routes)
+    nodes = list(graph.nodes)
+    default_hub = "Hub" if "Hub" in nodes else nodes[0]
+
+    hub = st.sidebar.selectbox(
+        "Base de saída e retorno",
+        nodes,
+        index=nodes.index(default_hub),
+        format_func=display_name_full,
+        help="É o ponto onde a rota começa e termina. Em logística, também pode ser chamado de hub.",
+    )
+
+    best, ranking = find_best_route(graph, hub, criterion, weights)
+
+    # Header mais limpo e alinhado
+    van_b64 = image_to_base64(DEFAULT_VAN_IMAGE)
+    if van_b64:
+        van_html = f'<div class="hero-van-wrap"><img src="data:image/png;base64,{van_b64}" alt="Van LOGIQ"></div>'
+    else:
+        van_html = '<div class="hero-van-wrap"><div style="color:#0B1F33;font-weight:800;text-align:center;">Adicione<br>assets/van_logiq.png</div></div>'
+
+    st.markdown(
+        f"""
+        <div class="hero-card">
+            {van_html}
+            <div class="hero-content">
+                <div class="hero-title">LOGIQ</div>
+                <div class="hero-subtitle">Rotas mais claras para quem decide, acompanha e executa a operação.</div>
+                <span class="chip">Rota explicável</span>
+                <span class="chip">Menos custo</span>
+                <span class="chip">Menos emissão</span>
+                <span class="chip">Quantum-inspired</span>
+                <span class="chip">Segurança pós-quântica</span>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    st.markdown(
+        f"""
+        <div class="status-card">
+        <strong>Base de demonstração ativa.</strong> Estamos usando a aba <strong>{sheet_name}</strong> da planilha local.
+        A rota parte da <strong>{display_name_full(hub)}</strong> e a prioridade escolhida é <strong>{criterion}</strong>.
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    tabs = st.tabs([
+        "Visão gráfica",
+        "Painel do operador",
+        "Dashboard executivo",
+        "Dados",
+        "Quantum-inspired",
+    ])
+
+    # Tab 1
+    with tabs[0]:
+        st.markdown('<div class="section-title">Visão gráfica da solução</div>', unsafe_allow_html=True)
+        st.markdown(
+            '<div class="section-subtitle">Aqui a LOGIQ traduz o cálculo em uma recomendação de rota clara, com indicadores que fazem sentido para o negócio.</div>',
+            unsafe_allow_html=True,
+        )
+        st.markdown(
+            f"""
+            <div class="route-card">
+                <h3 style="font-size:30px;color:#0B1F33;margin-bottom:10px;">Melhor decisão: {best['opcao']}</h3>
+                <p style="font-size:20px;color:#475569;margin-bottom:8px;"><b>Prioridade escolhida:</b> {criterion}</p>
+                <p style="font-size:20px;color:#0B1F33;margin-bottom:8px;"><b>Ordem da rota:</b></p>
+                <div class="route-sequence">{format_sequence(best['rota_lista'])}</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        c1, c2, c3, c4 = st.columns(4)
+        c1.markdown(f'<div class="metric-card"><div class="metric-label">Distância</div><div class="metric-value">{best["distancia_km"]:.2f} km</div></div>', unsafe_allow_html=True)
+        c2.markdown(f'<div class="metric-card"><div class="metric-label">Tempo</div><div class="metric-value">{best["tempo_min"]:.1f} min</div></div>', unsafe_allow_html=True)
+        c3.markdown(f'<div class="metric-card"><div class="metric-label">Custo</div><div class="metric-value">R$ {best["custo_rs"]:.2f}</div></div>', unsafe_allow_html=True)
+        c4.markdown(f'<div class="metric-card"><div class="metric-label">Emissão</div><div class="metric-value">{best["co2"]:.2f}</div></div>', unsafe_allow_html=True)
+
+        st.markdown("### Como a LOGIQ decide")
+        steps = [
+            ("1", "Lê os dados", "Usa a planilha com base, clientes, distâncias, tempo, custo e emissão."),
+            ("2", "Compara alternativas", "Testa combinações de rota e calcula os indicadores de cada opção."),
+            ("3", "Aplica a prioridade", "Ajusta a decisão conforme o que você quer melhorar hoje."),
+            ("4", "Recomenda a rota", "Mostra a melhor opção com caminho, indicadores e explicação."),
+            ("5", "Explica a decisão", "Mostra por que aquela rota venceu e quais dados entraram no cálculo."),
+            ("6", "Prepara evolução", "Deixa a arquitetura pronta para camadas quantum-inspired, QAOA e segurança pós-quântica."),
+        ]
+        row1 = st.columns(3)
+        row2 = st.columns(3)
+        for col, (num, title, body) in zip(row1 + row2, steps):
+            col.markdown(f'<div class="step-card"><div class="step-number">{num}</div><div class="step-title">{title}</div><div class="step-body">{body}</div></div>', unsafe_allow_html=True)
+
+        st.markdown(
+            """
+            <div class="pqc-card">
+                <div class="simple-title">Diferencial de segurança: criptografia pós-quântica</div>
+                Além de otimizar rotas, a LOGIQ pode evoluir para proteger dados sensíveis da operação logística com uma camada de <b>criptografia pós-quântica</b>.
+                Em linguagem simples: é preparar a segurança da solução para um futuro em que computadores quânticos possam ameaçar criptografias tradicionais.
+                Para logística, isso pode proteger dados de rotas, clientes, entregas, contratos e integrações com frotas.
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+    # Tab 2
+    with tabs[1]:
+        st.markdown('<div class="section-title">Painel do operador</div>', unsafe_allow_html=True)
+        st.markdown(
+            '<div class="section-subtitle">Esta é a tela para bater o olho e entender a sequência da viagem. Sem rede completa, sem ruído: apenas a rota recomendada.</div>',
+            unsafe_allow_html=True,
+        )
+        st.markdown(
+            f"""
+            <div class="route-card">
+                <h3 style="font-size:32px;color:#0B1F33;margin-bottom:12px;">{best['opcao']}</h3>
+                <p style="font-size:20px;color:#475569;margin-bottom:8px;"><b>Comece na base, siga as paradas e retorne à base.</b></p>
+                <div class="route-sequence">{format_sequence(best['rota_lista'])}</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        op1, op2, op3, op4 = st.columns(4)
+        op1.metric("Distância", f"{best['distancia_km']:.2f} km")
+        op2.metric("Tempo", f"{best['tempo_min']:.1f} min")
+        op3.metric("Custo", f"R$ {best['custo_rs']:.2f}")
+        op4.metric("Emissão", f"{best['co2']:.2f}")
+
+        st.pyplot(draw_operator_route(graph, best["rota_lista"]))
+
+        st.markdown("### Trecho a trecho")
+        segments_df = build_segments_table(graph, best["rota_lista"])
+        st.dataframe(segments_df, use_container_width=True, hide_index=True)
+
+        st.markdown(
+            f"""
+            <div class="gmaps-button">
+                <a href="{google_maps_url(best['rota_lista'], points_meta)}" target="_blank">Abrir rota no Google Maps</a>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        st.caption("Para o Google Maps funcionar bem, a aba Pontos deve ter endereço real ou latitude/longitude. A base de demonstração desta versão já inclui coordenadas simuladas.")
+
+    # Tab 3
+    with tabs[2]:
+        st.markdown('<div class="section-title">Dashboard executivo</div>', unsafe_allow_html=True)
+        st.markdown('<div class="section-subtitle">Resumo para decisão: qual rota usar, por que ela venceu e quais indicadores sustentam a escolha.</div>', unsafe_allow_html=True)
+        st.markdown(
+            f"""
+            <div class="big-card">
+                <h3 style="font-size:30px;color:#0B1F33;">Decisão recomendada</h3>
+                <p style="font-size:20px;color:#475569;"><b>{best['opcao']}</b> é a melhor alternativa para a prioridade <b>{criterion}</b>.</p>
+                <p style="font-size:19px;color:#475569;"><b>Caminho:</b> {best['rota']}</p>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        e1, e2 = st.columns(2)
+        with e1:
+            st.pyplot(build_top_routes_chart(ranking))
+        with e2:
+            st.pyplot(build_metrics_comparison_chart(best))
+        st.markdown(
+            """
+            <div class="business-note">
+            <b>Leitura de negócio:</b> a LOGIQ transforma dados de rota em recomendação prática. O gestor consegue defender a decisão com números e o operador entende a sequência da entrega.
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        st.markdown("### Top 10 rotas")
+        st.dataframe(ranking[["opcao", "rota", "distancia_km", "tempo_min", "custo_rs", "co2", "score"]].head(10), use_container_width=True, hide_index=True)
+
+    # Tab 4
+    with tabs[3]:
+        st.markdown('<div class="section-title">Dados</div>', unsafe_allow_html=True)
+        st.markdown('<div class="section-subtitle">Transparência da base usada no cálculo.</div>', unsafe_allow_html=True)
+        st.dataframe(routes, use_container_width=True, hide_index=True)
+        st.markdown("### Pesos aplicados")
+        st.markdown(
+            """
+            <div class="explain-box">
+            <b>O que são pesos?</b><br>
+            Peso é a importância que você dá para cada fator. Se todos estão em 0,25, o sistema está tratando distância, tempo, custo e emissão com a mesma importância.
+            Se você aumentar o peso de custo, por exemplo, a LOGIQ passa a favorecer rotas mais baratas.
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        pesos_df = pd.DataFrame([
+            {"fator": "Distância", "peso": round(weights["distancia_km"], 4)},
+            {"fator": "Tempo", "peso": round(weights["tempo_min"], 4)},
+            {"fator": "Custo", "peso": round(weights["custo_rs"], 4)},
+            {"fator": "CO₂", "peso": round(weights["co2"], 4)},
+        ])
+        st.dataframe(pesos_df, use_container_width=True, hide_index=True)
+
+    # Tab 5
+    with tabs[4]:
+        st.markdown('<div class="section-title">Camada quantum-inspired</div>', unsafe_allow_html=True)
+        st.markdown('<div class="section-subtitle">Aqui a lógica quântica é traduzida para negócios: combinações, pesos e custo de decisão.</div>', unsafe_allow_html=True)
+        with st.expander("ℹ️ O que esta aba quer mostrar?", expanded=True):
+            st.write(
+                """
+                Esta aba traduz a lógica quântica para uma linguagem de negócios.
+
+                Pense assim: o sistema testa combinações. Cada combinação recebe um código simples de 0 e 1. Esse código é chamado de bitstring.
+
+                A melhor combinação é aquela que apresenta o menor custo dentro da prioridade escolhida. Hoje isso é uma demonstração quantum-inspired. Em versões futuras, essa estrutura pode evoluir para QUBO, Ising e QAOA.
+                """
+            )
+
+        st.markdown(
+            """
+            <div class="explain-box">
+            <b>O que é bitstring?</b><br>
+            É uma sequência de zeros e uns usada pelo modelo para representar uma combinação possível.
+            Para uma pessoa de negócios, basta pensar assim: <b>cada bitstring é uma hipótese que o sistema testou</b>.
+            <br><br>
+            <b>O que é custo ponderado?</b><br>
+            É uma nota calculada pelo sistema. Quanto menor a nota, melhor aquela combinação dentro dos pesos escolhidos.
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        q1, q2 = st.columns(2)
+        with q1:
+            alpha = st.slider("Peso do tempo", 0.0, 1.0, 0.5, 0.05, help="Quanto maior, mais a lógica favorece rapidez.")
+        with q2:
+            beta = st.slider("Peso da emissão", 0.0, 1.0, 0.5, 0.05, help="Quanto maior, mais a lógica favorece menor emissão.")
+        total_q = alpha + beta
+        alpha_norm, beta_norm = (0.5, 0.5) if total_q == 0 else (alpha / total_q, beta / total_q)
+        q_df = quantum_inspired_demo(graph, alpha_norm, beta_norm)
+        st.dataframe(q_df[["opcao_quantica", "bitstring", "custo_ponderado", "arestas_ativadas"]].head(20), use_container_width=True, hide_index=True)
+        q_best = q_df.iloc[0]
+        st.markdown(
+            f"""
+            <div class="big-card">
+                <h3 style="font-size:28px;color:#0B1F33;">Melhor configuração demonstrativa</h3>
+                <p style="font-size:18px;"><b>{q_best['opcao_quantica']}</b></p>
+                <p style="font-size:18px;"><b>Bitstring:</b> {q_best['bitstring']}</p>
+                <p style="font-size:18px;"><b>Custo ponderado:</b> {q_best['custo_ponderado']}</p>
+                <p style="font-size:17px;color:#475569;line-height:1.6;margin-top:10px;">
+                Em português simples: esta foi a combinação demonstrativa com melhor nota dentro dos pesos escolhidos.
+                Ela não substitui a rota operacional; serve para mostrar como a solução pode evoluir para modelos quantum-inspired.
+                </p>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+        st.markdown(
+            """
+            <div class="pqc-card">
+                <div class="simple-title">Camada futura: segurança pós-quântica</div>
+                Uma evolução recomendada para a LOGIQ é prever criptografia pós-quântica na proteção de dados logísticos.
+                Isso não é necessário para o cálculo da rota, mas pode ser um diferencial de cybersecurity em ambientes com dados sensíveis.
+                <br><br>
+                Em linguagem de negócio: além de escolher a melhor rota, a solução pode ser preparada para proteger informações estratégicas contra ameaças futuras ligadas à computação quântica.
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+except Exception as e:
+    st.error("Erro ao executar o sistema.")
+    st.exception(e)
+    st.markdown(
+        """
+        Verifique:
+        1. Se a planilha existe em `data/logiq_planilha_completa_mvp.xlsx`.
+        2. Se a imagem existe em `assets/van_logiq.png`.
+        3. Se as dependências foram instaladas com `pip install -r requirements.txt`.
+        4. Se você está rodando o comando dentro da pasta correta.
+        """
+    )
