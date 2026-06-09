@@ -29,3 +29,9 @@ Para o Google Maps funcionar bem, a aba Pontos da planilha precisa trazer endere
 
 
 V4.5: Remove textos de segurança pós-quântica, simplifica o ciclo infinito e inclui a rota recomendada dentro do ciclo visual.
+
+
+V4.7
+- Substitui o ciclo visual anterior por uma imagem limpa em formato de fluxo contínuo.
+- Separa a melhor decisão e o ciclo de decisão em blocos distintos.
+- Mantém o detalhamento operacional da rota apenas nas abas próprias.

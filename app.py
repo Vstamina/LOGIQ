@@ -1,6 +1,7 @@
 import base64
 import itertools
 import os
+import math
 import unicodedata
 from urllib.parse import quote_plus
 
@@ -11,7 +12,7 @@ import streamlit as st
 from PIL import Image
 
 # ============================================================
-# LOGIQ MVP V4.6
+# LOGIQ MVP V4.8
 # ============================================================
 
 st.set_page_config(
@@ -23,6 +24,7 @@ st.set_page_config(
 
 DEFAULT_EXCEL_PATH = os.path.join("data", "logiq_planilha_completa_mvp.xlsx")
 DEFAULT_VAN_IMAGE = os.path.join("assets", "van_logiq.png")
+DEFAULT_CYCLE_IMAGE = os.path.join("assets", "ciclo_decisao_logiq.png")
 
 # ============================================================
 # CSS
@@ -459,6 +461,120 @@ st.markdown(
         font-size: 20px;
     }
 
+
+    .result-block {
+        background: #FFFFFF;
+        border: 1px solid #DCEAF5;
+        border-radius: 24px;
+        padding: 26px;
+        margin-top: 22px;
+        margin-bottom: 24px;
+        box-shadow: 0 6px 18px rgba(11, 31, 58, 0.06);
+    }
+
+    .cycle-image-card {
+        background: #FFFFFF;
+        border: 1px solid #DCEAF5;
+        border-radius: 24px;
+        padding: 18px;
+        margin-top: 24px;
+        margin-bottom: 24px;
+        box-shadow: 0 6px 18px rgba(11, 31, 58, 0.06);
+        overflow: hidden;
+    }
+
+    .cycle-image-card img {
+        width: 100%;
+        border-radius: 18px;
+        display: block;
+    }
+
+
+
+    .info-dot {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        background: #E0F2FE;
+        border: 1px solid #7DD3FC;
+        color: #005CA9;
+        font-size: 12px;
+        font-weight: 900;
+        margin-left: 6px;
+        cursor: help;
+        vertical-align: text-top;
+    }
+
+    .quantum-mini-note {
+        background: #F8FBFE;
+        border: 1px solid #DCEAF5;
+        border-radius: 16px;
+        padding: 16px 18px;
+        color: #334155;
+        font-size: 16px;
+        line-height: 1.55;
+        margin: 14px 0 18px 0;
+    }
+
+    .quality-panel {
+        background: linear-gradient(180deg, #FFFFFF 0%, #F8FBFE 100%);
+        border: 1px solid #DCEAF5;
+        border-radius: 22px;
+        padding: 22px 24px;
+        margin: 14px 0 18px 0;
+        box-shadow: 0px 4px 18px rgba(11,31,51,0.06);
+    }
+
+    .quality-panel-title {
+        font-size: 24px;
+        font-weight: 900;
+        color: #0B1F33;
+        margin-bottom: 6px;
+    }
+
+    .quality-panel-subtitle {
+        font-size: 16px;
+        color: #475569;
+        line-height: 1.5;
+        margin-bottom: 10px;
+    }
+
+    .speedometer-wrap {
+        display: flex;
+        align-items: center;
+        gap: 22px;
+        flex-wrap: wrap;
+        margin-top: 6px;
+    }
+
+    .speedometer-svg {
+        max-width: 430px;
+        width: 100%;
+        height: auto;
+    }
+
+    .speedometer-text {
+        flex: 1;
+        min-width: 260px;
+        color: #334155;
+        font-size: 16px;
+        line-height: 1.55;
+    }
+
+    .quality-badge {
+        display: inline-block;
+        background: #0B1F33;
+        color: #FFFFFF;
+        border-radius: 999px;
+        padding: 8px 13px;
+        font-weight: 900;
+        font-size: 15px;
+        margin-top: 8px;
+    }
+
     </style>
     """,
     unsafe_allow_html=True,
@@ -738,6 +854,98 @@ def quantum_inspired_demo(graph, alpha, beta):
     return df
 
 
+def get_quality_panel_data(q_df, q_best):
+    """
+    Transforma o custo ponderado em uma leitura visual simples.
+    Quanto mais perto de 100%, mais perto da melhor nota dentro da simulação.
+    """
+    min_cost = float(q_df["custo_ponderado"].min())
+    max_cost = float(q_df["custo_ponderado"].max())
+    best_cost = float(q_best["custo_ponderado"])
+
+    if max_cost == min_cost:
+        quality = 100.0
+    else:
+        quality = 100.0 * (max_cost - best_cost) / (max_cost - min_cost)
+
+    quality = max(0.0, min(100.0, quality))
+
+    if quality >= 90:
+        label = "Muito perto da melhor nota"
+    elif quality >= 70:
+        label = "Boa configuração"
+    elif quality >= 45:
+        label = "Configuração intermediária"
+    else:
+        label = "Longe da melhor nota"
+
+    return quality, label, min_cost, max_cost
+
+
+def _polar_to_cartesian(cx, cy, r, angle_deg):
+    angle_rad = math.radians(angle_deg)
+    return cx + r * math.cos(angle_rad), cy - r * math.sin(angle_rad)
+
+
+def _svg_arc_path(cx, cy, r, start_angle, end_angle):
+    x1, y1 = _polar_to_cartesian(cx, cy, r, start_angle)
+    x2, y2 = _polar_to_cartesian(cx, cy, r, end_angle)
+    large_arc = 1 if abs(end_angle - start_angle) > 180 else 0
+    sweep = 0
+    return f"M {x1:.2f} {y1:.2f} A {r} {r} 0 {large_arc} {sweep} {x2:.2f} {y2:.2f}"
+
+
+def render_quality_panel(q_df, q_best):
+    quality, label, min_cost, max_cost = get_quality_panel_data(q_df, q_best)
+
+    cx, cy, radius = 220, 190, 145
+    needle_angle = 180 - (quality * 1.8)
+    nx_, ny_ = _polar_to_cartesian(cx, cy, radius - 20, needle_angle)
+
+    segment_colors = ["#DBEAFE", "#BFDBFE", "#93C5FD", "#60A5FA", "#38BDF8", "#0EA5E9", "#005CA9"]
+    segment_paths = []
+    total_span = 180
+    gap = 3
+    segment_span = total_span / len(segment_colors)
+
+    for idx, color in enumerate(segment_colors):
+        start_angle = 180 - (idx * segment_span) - gap
+        end_angle = 180 - ((idx + 1) * segment_span) + gap
+        path = _svg_arc_path(cx, cy, radius, start_angle, end_angle)
+        segment_paths.append(f'<path d="{path}" fill="none" stroke="{color}" stroke-width="28" stroke-linecap="round"/>')
+
+    svg_segments = "".join(segment_paths)
+
+    st.markdown(
+        f"""
+        <div class="quality-panel">
+            <div class="quality-panel-title">Proximidade da melhor nota</div>
+            <div class="quality-panel-subtitle">
+                O marcador mostra onde a melhor configuração demonstrativa ficou dentro da simulação. Quanto mais à direita, mais perto da melhor nota.
+            </div>
+            <div class="speedometer-wrap">
+                <svg class="speedometer-svg" viewBox="0 0 440 245" role="img" aria-label="Marcador de proximidade da melhor nota">
+                    <text x="28" y="224" font-size="14" font-weight="700" fill="#64748B">Pior</text>
+                    <text x="195" y="55" font-size="14" font-weight="700" fill="#64748B">Médio</text>
+                    <text x="365" y="224" font-size="14" font-weight="700" fill="#64748B">Melhor</text>
+                    {svg_segments}
+                    <line x1="{cx}" y1="{cy}" x2="{nx_:.2f}" y2="{ny_:.2f}" stroke="#0B1F33" stroke-width="8" stroke-linecap="round"/>
+                    <circle cx="{cx}" cy="{cy}" r="17" fill="#0B1F33"/>
+                    <circle cx="{cx}" cy="{cy}" r="8" fill="#FFFFFF"/>
+                    <text x="{cx}" y="{cy+42}" text-anchor="middle" font-size="30" font-weight="900" fill="#0B1F33">{quality:.0f}%</text>
+                </svg>
+                <div class="speedometer-text">
+                    <span class="quality-badge">{label}</span><br><br>
+                    <b>Como ler:</b> a menor nota é a melhor. O painel transforma essa nota em uma escala simples de 0% a 100%.<br>
+                    <b>Melhor nota da simulação:</b> {min_cost:.3f}<br>
+                    <b>Pior nota da simulação:</b> {max_cost:.3f}
+                </div>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
 def google_maps_url(route_list, points_meta=None):
     if not route_list or len(route_list) < 2:
         return "https://www.google.com/maps"
@@ -774,6 +982,19 @@ def image_to_base64(path):
         return None
     with open(path, "rb") as image_file:
         return base64.b64encode(image_file.read()).decode("utf-8")
+
+
+def render_cycle_image_block():
+    cycle_b64 = image_to_base64(DEFAULT_CYCLE_IMAGE)
+    if cycle_b64:
+        html = f"""
+        <div class=\"cycle-image-card\">
+            <img src=\"data:image/png;base64,{cycle_b64}\" alt=\"Ciclo de decisão LOGIQ\">
+        </div>
+        """
+        st.markdown(html, unsafe_allow_html=True)
+    else:
+        st.warning("A imagem do ciclo não foi encontrada em assets/ciclo_decisao_logiq.png")
 
 
 def draw_operator_route(graph, route_list):
@@ -998,8 +1219,6 @@ try:
     )
 
     best, ranking = find_best_route(graph, hub, criterion, weights)
-    rota_ciclo_html = route_steps_html(best["rota_lista"])
-
     # Header mais limpo e alinhado
     van_b64 = image_to_base64(DEFAULT_VAN_IMAGE)
     if van_b64:
@@ -1056,54 +1275,8 @@ try:
         c3.markdown(f'<div class="metric-card"><div class="metric-label">Custo</div><div class="metric-value">R$ {best["custo_rs"]:.2f}</div></div>', unsafe_allow_html=True)
         c4.markdown(f'<div class="metric-card"><div class="metric-label">Emissão</div><div class="metric-value">{best["co2"]:.2f}</div></div>', unsafe_allow_html=True)
 
-        st.markdown("### Ciclo de decisão LOGIQ")
-        st.markdown(
-            f"""
-            <div class="infinity-card">
-                <div class="infinity-symbol">∞</div>
-                <div class="infinity-title">Ciclo LOGIQ: da base de dados à rota executável.</div>
-                <div class="infinity-subtitle">
-                    A operação entra com dados de entrega. A LOGIQ compara alternativas, aplica a prioridade escolhida
-                    e entrega a sequência recomendada para execução.
-                </div>
-                <div class="flow-row">
-                    <div class="flow-pill"><span class="flow-number">1</span> Dados</div>
-                    <div class="flow-pill"><span class="flow-number">2</span> Comparação</div>
-                    <div class="flow-pill"><span class="flow-number">3</span> Prioridade</div>
-                    <div class="flow-pill"><span class="flow-number">4</span> Rota</div>
-                    <div class="flow-pill"><span class="flow-number">5</span> Explicação</div>
-                    <div class="flow-pill"><span class="flow-number">∞</span> Recalcular</div>
-                </div>
-                <div class="route-mini-title">Rota recomendada dentro do ciclo</div>
-                <div class="route-step-row">{rota_ciclo_html}</div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-
-        with st.expander("ℹ️ Ver detalhes do ciclo", expanded=False):
-            st.markdown(
-                f"""
-                **1. Dados**  
-                A planilha informa base, pontos de entrega, distância, tempo, custo e emissão.
-
-                **2. Comparação**  
-                A LOGIQ testa alternativas de rota e compara os indicadores de cada uma.
-
-                **3. Prioridade**  
-                Você escolhe o que importa mais hoje: chegar rápido, gastar menos, andar menos, emitir menos ou equilibrar tudo.
-
-                **4. Rota executável**  
-                A melhor rota aparece em passo a passo:  
-                **{format_sequence(best['rota_lista'])}**
-
-                **5. Explicação**  
-                A decisão vem acompanhada dos indicadores que justificam a escolha.
-
-                **∞. Recalcular**  
-                Ao mudar os pesos ou subir outra planilha, o ciclo recomeça e a LOGIQ recomenda uma nova rota.
-                """
-            )
+        # Bloco 2 — Ciclo de decisão LOGIQ
+        render_cycle_image_block()
 
     # Tab 2
     with tabs[1]:
@@ -1201,56 +1374,86 @@ try:
     # Tab 5
     with tabs[4]:
         st.markdown('<div class="section-title">Camada quantum-inspired</div>', unsafe_allow_html=True)
-        st.markdown('<div class="section-subtitle">Aqui a lógica quântica é traduzida para negócios: combinações, pesos e custo de decisão.</div>', unsafe_allow_html=True)
-        with st.expander("ℹ️ O que esta aba quer mostrar?", expanded=True):
-            st.write(
-                """
-                Esta aba traduz a lógica quântica para uma linguagem de negócios.
-
-                Pense assim: o sistema testa combinações. Cada combinação recebe um código simples de 0 e 1. Esse código é chamado de bitstring.
-
-                A melhor combinação é aquela que apresenta o menor custo dentro da prioridade escolhida. Hoje isso é uma demonstração quantum-inspired. Em versões futuras, essa estrutura pode evoluir para QUBO, Ising e QAOA.
-                """
-            )
-
         st.markdown(
-            """
-            <div class="explain-box">
-            <b>O que é bitstring?</b><br>
-            É uma sequência de zeros e uns usada pelo modelo para representar uma combinação possível.
-            Para uma pessoa de negócios, basta pensar assim: <b>cada bitstring é uma hipótese que o sistema testou</b>.
-            <br><br>
-            <b>O que é custo ponderado?</b><br>
-            É uma nota calculada pelo sistema. Quanto menor a nota, melhor aquela combinação dentro dos pesos escolhidos.
-            </div>
-            """,
+            '<div class="section-subtitle">Aqui a lógica quântica é traduzida para negócios: combinações, pesos e custo de decisão.</div>',
             unsafe_allow_html=True,
         )
+
         q1, q2 = st.columns(2)
         with q1:
-            alpha = st.slider("Peso do tempo", 0.0, 1.0, 0.5, 0.05, help="Quanto maior, mais a lógica favorece rapidez.")
+            alpha = st.slider(
+                "Peso do tempo",
+                0.0,
+                1.0,
+                0.5,
+                0.05,
+                help="Quanto maior, mais a simulação demonstrativa favorece rapidez.",
+            )
         with q2:
-            beta = st.slider("Peso da emissão", 0.0, 1.0, 0.5, 0.05, help="Quanto maior, mais a lógica favorece menor emissão.")
+            beta = st.slider(
+                "Peso da emissão",
+                0.0,
+                1.0,
+                0.5,
+                0.05,
+                help="Quanto maior, mais a simulação demonstrativa favorece menor emissão.",
+            )
+
         total_q = alpha + beta
         alpha_norm, beta_norm = (0.5, 0.5) if total_q == 0 else (alpha / total_q, beta / total_q)
         q_df = quantum_inspired_demo(graph, alpha_norm, beta_norm)
-        st.dataframe(q_df[["opcao_quantica", "bitstring", "custo_ponderado", "arestas_ativadas"]].head(20), width="stretch", hide_index=True)
         q_best = q_df.iloc[0]
+
+        render_quality_panel(q_df, q_best)
+
+        with st.expander("ℹ️ O que esta aba quer mostrar?", expanded=False):
+            st.write(
+                """
+                Esta aba é uma demonstração da camada quantum-inspired da LOGIQ.
+
+                Em português simples, ela mostra como várias combinações possíveis podem ser testadas, comparadas e ranqueadas por uma nota de decisão.
+
+                Essa parte não substitui a rota operacional. Ela mostra como a arquitetura pode evoluir para modelos QUBO, Ising e QAOA.
+                """
+            )
+
+        st.markdown("### Ranking demonstrativo")
+        st.dataframe(
+            q_df[["opcao_quantica", "bitstring", "custo_ponderado", "arestas_ativadas"]].head(20),
+            width="stretch",
+            hide_index=True,
+        )
+
         st.markdown(
             f"""
             <div class="big-card">
-                <h3 style="font-size:28px;color:#0B1F33;">Melhor configuração demonstrativa</h3>
-                <p style="font-size:18px;"><b>{q_best['opcao_quantica']}</b></p>
-                <p style="font-size:18px;"><b>Bitstring:</b> {q_best['bitstring']}</p>
-                <p style="font-size:18px;"><b>Custo ponderado:</b> {q_best['custo_ponderado']}</p>
-                <p style="font-size:17px;color:#475569;line-height:1.6;margin-top:10px;">
-                Em português simples: esta foi a combinação demonstrativa com melhor nota dentro dos pesos escolhidos.
-                Ela não substitui a rota operacional; serve para mostrar como a solução pode evoluir para modelos quantum-inspired.
+                <h3 style="font-size:28px;color:#0B1F33;margin-bottom:14px;">Melhor configuração demonstrativa</h3>
+                <p style="font-size:18px;margin-bottom:10px;"><b>{q_best['opcao_quantica']}</b></p>
+                <p style="font-size:18px;margin-bottom:10px;">
+                    <b>Bitstring</b><span class="info-dot" title="É uma sequência de zeros e uns usada para representar uma combinação possível. Para negócios, pense como uma hipótese que o sistema testou.">i</span>: {q_best['bitstring']}
+                </p>
+                <p style="font-size:18px;margin-bottom:10px;">
+                    <b>Custo ponderado</b><span class="info-dot" title="É uma nota calculada pelo sistema com base nos pesos escolhidos. Não é dinheiro. Quanto menor a nota, melhor a combinação dentro daquela prioridade.">i</span>: {q_best['custo_ponderado']}
+                </p>
+                <p style="font-size:17px;color:#475569;line-height:1.6;margin-top:12px;">
+                    Em português simples: esta foi a combinação demonstrativa com <b>menor nota</b> dentro dos pesos escolhidos.
+                    Ela não substitui a rota operacional; serve para mostrar como a solução pode evoluir para modelos quantum-inspired.
                 </p>
             </div>
             """,
             unsafe_allow_html=True,
         )
+
+        st.markdown(
+            """
+            <div class="quantum-mini-note">
+                <b>Quanto menor, melhor.</b> O custo ponderado é uma nota de comparação, não um valor em reais.
+                Ele serve para ordenar as combinações e mostrar qual ficou mais adequada dentro dos pesos escolhidos.
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
 
 except Exception as e:
     st.error("Erro ao executar o sistema.")
