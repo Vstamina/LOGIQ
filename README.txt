@@ -1,26 +1,31 @@
-LOGIQ MVP V4.2
+LOGIQ MVP V4.5
 
-Versão com linguagem mais simples para negócio, operação e demonstração quantum-inspired.
+Esta versão ajusta a interface para ficar menos poluída e mais clara para usuários de negócio.
 
-Principais ajustes:
-- Explicação clara de pesos aplicados.
-- Explicação de bitstring e custo ponderado em linguagem simples.
-- Camada futura de criptografia pós-quântica como diferencial de cybersecurity.
-- Google Maps usa latitude/longitude da aba Pontos quando disponíveis.
-- Painel do operador mantém rota por trecho, cores e sequência visual.
-- Menu de decisão permanece no lado direito.
+Principais mudanças:
+- Remove o aviso amarelo fixo sobre dados em uso da tela principal.
+- Aumenta a fonte dos títulos das abas.
+- Renomeia as abas para linguagem mais simples:
+  * Visão da solução
+  * Rota do motorista
+  * Resumo executivo
+  * Dados usados
+  * Lógica quântica
+- Substitui os seis cards fixos de "Como a LOGIQ decide" por um ciclo visual em formato de infinito.
+- Os detalhes do ciclo ficam recolhidos em um bloco expansível, para reduzir poluição visual.
+- Mantém a visão do operador, a rota por trecho, o link para Google Maps e a camada quantum-inspired.
 
 Como rodar:
-1. Abra o PowerShell na pasta do projeto.
-2. Ative o ambiente virtual:
+1. Abrir o PowerShell na pasta do projeto
+2. Ativar o ambiente virtual:
    .\.venv\Scripts\Activate.ps1
-3. Instale dependências:
+3. Instalar dependências:
    pip install -r requirements.txt
-4. Rode:
+4. Rodar:
    streamlit run app.py
 
-Para recriar a planilha de demonstração:
-   python gerar_planilha.py
-
 Observação:
-A aba Quantum-inspired é demonstrativa. Ela traduz a lógica de combinações, pesos e bitstrings para negócios. A rota operacional continua sendo apresentada no Painel do operador.
+Para o Google Maps funcionar bem, a aba Pontos da planilha precisa trazer endereço real ou latitude/longitude.
+
+
+V4.5: Remove textos de segurança pós-quântica, simplifica o ciclo infinito e inclui a rota recomendada dentro do ciclo visual.

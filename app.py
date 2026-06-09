@@ -11,7 +11,7 @@ import streamlit as st
 from PIL import Image
 
 # ============================================================
-# LOGIQ MVP V4.2
+# LOGIQ MVP V4.6
 # ============================================================
 
 st.set_page_config(
@@ -34,35 +34,15 @@ st.markdown(
     .block-container {
         padding-top: 1.2rem;
         padding-bottom: 2rem;
-        max-width: 1580px;
-        padding-right: 430px;
-        padding-left: 3rem;
+        max-width: 1480px;
+        padding-left: 2.2rem;
+        padding-right: 2.2rem;
     }
 
-    /* Sidebar no lado direito, estilo leitura da direita para esquerda */
-    section[data-testid="stSidebar"] {
-        position: fixed !important;
-        right: 0 !important;
-        left: auto !important;
-        top: 0 !important;
-        height: 100vh !important;
-        z-index: 999999 !important;
-        border-left: 1px solid #DCEAF5 !important;
-        border-right: none !important;
-        box-shadow: -8px 0 24px rgba(11,31,51,0.08);
-        direction: ltr;
-    }
-
+    /* Sidebar padrão à esquerda: mais estável no Streamlit Cloud e melhor em telas menores */
     section[data-testid="stSidebar"] > div {
-        width: 405px !important;
-        min-width: 405px !important;
         background: #EEF3F8;
         padding-top: 2rem;
-    }
-
-    [data-testid="collapsedControl"], [data-testid="stSidebarCollapsedControl"] {
-        right: 18px !important;
-        left: auto !important;
     }
 
     .hero-title {
@@ -345,6 +325,140 @@ st.markdown(
         border: 1px solid #DCEAF5;
         box-shadow: 0px 3px 12px rgba(11,31,51,0.05);
     }
+
+
+    /* Abas maiores e mais legíveis */
+    button[data-baseweb="tab"] {
+        font-size: 20px !important;
+        font-weight: 800 !important;
+        padding: 14px 18px !important;
+    }
+
+    button[data-baseweb="tab"] p {
+        font-size: 20px !important;
+        font-weight: 800 !important;
+    }
+
+    div[data-baseweb="tab-list"] {
+        gap: 12px !important;
+        border-bottom: 1px solid #DCEAF5;
+        margin-bottom: 18px;
+    }
+
+    .infinity-card {
+        background: #FFFFFF;
+        border: 1px solid #DCEAF5;
+        border-radius: 22px;
+        padding: 26px 28px;
+        box-shadow: 0px 4px 18px rgba(11,31,51,0.06);
+        margin: 18px 0 18px 0;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .infinity-symbol {
+        position: absolute;
+        right: 28px;
+        top: 8px;
+        font-size: 190px;
+        line-height: 1;
+        color: rgba(0,92,169,0.08);
+        font-weight: 900;
+        pointer-events: none;
+    }
+
+    .infinity-title {
+        font-size: 26px;
+        font-weight: 900;
+        color: #0B1F33;
+        margin-bottom: 8px;
+        position: relative;
+        z-index: 2;
+    }
+
+    .infinity-subtitle {
+        font-size: 18px;
+        color: #475569;
+        line-height: 1.55;
+        margin-bottom: 18px;
+        max-width: 850px;
+        position: relative;
+        z-index: 2;
+    }
+
+    .flow-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        position: relative;
+        z-index: 2;
+    }
+
+    .flow-pill {
+        background: #F8FBFE;
+        border: 1px solid #BFD7EA;
+        border-radius: 999px;
+        padding: 11px 16px;
+        font-size: 16px;
+        font-weight: 800;
+        color: #0B1F33;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .flow-number {
+        background: #005CA9;
+        color: #FFFFFF;
+        border-radius: 50%;
+        width: 28px;
+        height: 28px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 15px;
+        font-weight: 900;
+    }
+
+
+    .route-mini-title {
+        font-size: 18px;
+        font-weight: 900;
+        color: #0B1F33;
+        margin: 18px 0 10px 0;
+        position: relative;
+        z-index: 2;
+    }
+
+    .route-step-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        align-items: center;
+        position: relative;
+        z-index: 2;
+        margin-top: 8px;
+    }
+
+    .route-step-pill {
+        background: #0B1F33;
+        color: #FFFFFF;
+        border-radius: 999px;
+        padding: 10px 14px;
+        font-size: 15px;
+        font-weight: 800;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        box-shadow: 0px 3px 10px rgba(11,31,51,0.10);
+    }
+
+    .route-arrow {
+        color: #005CA9;
+        font-weight: 900;
+        font-size: 20px;
+    }
+
     </style>
     """,
     unsafe_allow_html=True,
@@ -381,6 +495,20 @@ def display_route(route_list):
 
 def format_sequence(route_list):
     return " → ".join([f"{i+1}. {display_name(p)}" for i, p in enumerate(route_list)])
+
+
+def route_steps_html(route_list):
+    """
+    Monta os passos da rota para exibir dentro do ciclo visual.
+    Mantém a leitura curta, sem poluir a tela.
+    """
+    pieces = []
+    for i, point in enumerate(route_list, start=1):
+        label = display_name(point)
+        pieces.append(f'<span class="route-step-pill"><b>{i}</b> {label}</span>')
+        if i < len(route_list):
+            pieces.append('<span class="route-arrow">→</span>')
+    return "".join(pieces)
 
 
 def find_column(df, options):
@@ -651,23 +779,24 @@ def image_to_base64(path):
 def draw_operator_route(graph, route_list):
     fig, ax = plt.subplots(figsize=(14, 8))
 
-    # Layout fixo para leitura mais organizada quando usamos a base simulada.
-    known = {"Hub", "Cliente A", "Cliente B", "Cliente C", "Cliente D", "Cliente E", "Cliente F"}
-    if known.issubset(set(graph.nodes)):
-        pos = {
-            "Hub": (-1.1, 0.0),
-            "Cliente A": (-0.55, -0.78),
-            "Cliente B": (-0.48, 0.78),
-            "Cliente C": (0.30, -0.82),
-            "Cliente E": (0.38, 0.02),
-            "Cliente F": (1.10, 0.72),
-            "Cliente D": (1.18, -0.22),
-        }
-    else:
-        pos = nx.spring_layout(graph, seed=18, k=1.25)
-
     route_edges = list(zip(route_list[:-1], route_list[1:]))
     route_nodes = list(dict.fromkeys(route_list))
+
+    # Layout fixo apenas quando TODOS os pontos da rota cabem na base simples.
+    fixed_pos = {
+        "Hub": (-1.1, 0.0),
+        "Cliente A": (-0.55, -0.78),
+        "Cliente B": (-0.48, 0.78),
+        "Cliente C": (0.30, -0.82),
+        "Cliente E": (0.38, 0.02),
+        "Cliente F": (1.10, 0.72),
+        "Cliente D": (1.18, -0.22),
+    }
+    if set(route_nodes).issubset(set(fixed_pos.keys())):
+        pos = fixed_pos
+    else:
+        route_graph_layout = graph.subgraph(route_nodes).copy()
+        pos = nx.spring_layout(route_graph_layout, seed=18, k=1.45)
     segment_colors = ["#005CA9", "#1F7A8C", "#2A9D8F", "#E76F51", "#7B2CBF", "#F4A261", "#264653", "#118AB2", "#EF476F"]
 
     # Desenha só a rota escolhida no painel do operador.
@@ -777,9 +906,9 @@ st.sidebar.markdown("## Decisão da rota")
 st.sidebar.markdown(
     """
     <div class="sidebar-callout">
-    <b>Vamos escolher a melhor rota juntos.</b><br><br>
-    Diga o que importa mais hoje: chegar rápido, gastar menos, andar menos, emitir menos CO₂ ou equilibrar tudo.<br><br>
-    A LOGIQ faz as contas e entrega uma rota explicada, pronta para decisão e operação.
+    <b>Escolha o foco da entrega.</b><br><br>
+    A LOGIQ compara as rotas e mostra o caminho mais adequado para a operação: mais rápido, mais barato, mais curto, mais sustentável ou equilibrado.<br><br>
+    Você não precisa entender de programação nem de computação quântica. O painel traduz os dados em uma decisão simples.
     </div>
     """,
     unsafe_allow_html=True,
@@ -797,11 +926,29 @@ with st.sidebar.expander("ℹ️ O que este painel faz?", expanded=False):
         """
     )
 
-uploaded_file = st.sidebar.file_uploader(
-    "Subir planilha Excel",
-    type=["xlsx", "xls"],
-    help="Envie uma base real de rotas. Se nada for enviado, usamos uma base simulada para demonstração.",
+if "upload_key" not in st.session_state:
+    st.session_state.upload_key = 0
+
+source_mode = st.sidebar.radio(
+    "Fonte dos dados",
+    ["Usar base de demonstração", "Usar minha planilha"],
+    help="Escolha se quer testar com a base pronta do MVP ou enviar uma planilha própria.",
 )
+
+uploaded_file = None
+if source_mode == "Usar minha planilha":
+    uploaded_file = st.sidebar.file_uploader(
+        "Subir planilha Excel",
+        type=["xlsx", "xls"],
+        key=f"uploaded_excel_{st.session_state.upload_key}",
+        help="Envie uma base real de rotas. A planilha precisa ter uma aba com origem, destino, distância, tempo, custo e CO₂.",
+    )
+
+    if st.sidebar.button("Limpar planilha enviada", help="Remove a planilha carregada e permite testar outra."):
+        st.session_state.upload_key += 1
+        st.rerun()
+else:
+    st.sidebar.info("Você está usando a base simulada. Para testar outro arquivo, escolha 'Usar minha planilha'.")
 
 criterion = st.sidebar.selectbox(
     "O que você quer melhorar hoje?",
@@ -851,6 +998,7 @@ try:
     )
 
     best, ranking = find_best_route(graph, hub, criterion, weights)
+    rota_ciclo_html = route_steps_html(best["rota_lista"])
 
     # Header mais limpo e alinhado
     van_b64 = image_to_base64(DEFAULT_VAN_IMAGE)
@@ -870,29 +1018,18 @@ try:
                 <span class="chip">Menos custo</span>
                 <span class="chip">Menos emissão</span>
                 <span class="chip">Quantum-inspired</span>
-                <span class="chip">Segurança pós-quântica</span>
             </div>
         </div>
         """,
         unsafe_allow_html=True,
     )
 
-    st.markdown(
-        f"""
-        <div class="status-card">
-        <strong>Base de demonstração ativa.</strong> Estamos usando a aba <strong>{sheet_name}</strong> da planilha local.
-        A rota parte da <strong>{display_name_full(hub)}</strong> e a prioridade escolhida é <strong>{criterion}</strong>.
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
     tabs = st.tabs([
-        "Visão gráfica",
-        "Painel do operador",
-        "Dashboard executivo",
-        "Dados",
-        "Quantum-inspired",
+        "Visão da solução",
+        "Rota do motorista",
+        "Resumo executivo",
+        "Dados usados",
+        "Lógica quântica",
     ])
 
     # Tab 1
@@ -919,31 +1056,54 @@ try:
         c3.markdown(f'<div class="metric-card"><div class="metric-label">Custo</div><div class="metric-value">R$ {best["custo_rs"]:.2f}</div></div>', unsafe_allow_html=True)
         c4.markdown(f'<div class="metric-card"><div class="metric-label">Emissão</div><div class="metric-value">{best["co2"]:.2f}</div></div>', unsafe_allow_html=True)
 
-        st.markdown("### Como a LOGIQ decide")
-        steps = [
-            ("1", "Lê os dados", "Usa a planilha com base, clientes, distâncias, tempo, custo e emissão."),
-            ("2", "Compara alternativas", "Testa combinações de rota e calcula os indicadores de cada opção."),
-            ("3", "Aplica a prioridade", "Ajusta a decisão conforme o que você quer melhorar hoje."),
-            ("4", "Recomenda a rota", "Mostra a melhor opção com caminho, indicadores e explicação."),
-            ("5", "Explica a decisão", "Mostra por que aquela rota venceu e quais dados entraram no cálculo."),
-            ("6", "Prepara evolução", "Deixa a arquitetura pronta para camadas quantum-inspired, QAOA e segurança pós-quântica."),
-        ]
-        row1 = st.columns(3)
-        row2 = st.columns(3)
-        for col, (num, title, body) in zip(row1 + row2, steps):
-            col.markdown(f'<div class="step-card"><div class="step-number">{num}</div><div class="step-title">{title}</div><div class="step-body">{body}</div></div>', unsafe_allow_html=True)
-
+        st.markdown("### Ciclo de decisão LOGIQ")
         st.markdown(
-            """
-            <div class="pqc-card">
-                <div class="simple-title">Diferencial de segurança: criptografia pós-quântica</div>
-                Além de otimizar rotas, a LOGIQ pode evoluir para proteger dados sensíveis da operação logística com uma camada de <b>criptografia pós-quântica</b>.
-                Em linguagem simples: é preparar a segurança da solução para um futuro em que computadores quânticos possam ameaçar criptografias tradicionais.
-                Para logística, isso pode proteger dados de rotas, clientes, entregas, contratos e integrações com frotas.
+            f"""
+            <div class="infinity-card">
+                <div class="infinity-symbol">∞</div>
+                <div class="infinity-title">Ciclo LOGIQ: da base de dados à rota executável.</div>
+                <div class="infinity-subtitle">
+                    A operação entra com dados de entrega. A LOGIQ compara alternativas, aplica a prioridade escolhida
+                    e entrega a sequência recomendada para execução.
+                </div>
+                <div class="flow-row">
+                    <div class="flow-pill"><span class="flow-number">1</span> Dados</div>
+                    <div class="flow-pill"><span class="flow-number">2</span> Comparação</div>
+                    <div class="flow-pill"><span class="flow-number">3</span> Prioridade</div>
+                    <div class="flow-pill"><span class="flow-number">4</span> Rota</div>
+                    <div class="flow-pill"><span class="flow-number">5</span> Explicação</div>
+                    <div class="flow-pill"><span class="flow-number">∞</span> Recalcular</div>
+                </div>
+                <div class="route-mini-title">Rota recomendada dentro do ciclo</div>
+                <div class="route-step-row">{rota_ciclo_html}</div>
             </div>
             """,
             unsafe_allow_html=True,
         )
+
+        with st.expander("ℹ️ Ver detalhes do ciclo", expanded=False):
+            st.markdown(
+                f"""
+                **1. Dados**  
+                A planilha informa base, pontos de entrega, distância, tempo, custo e emissão.
+
+                **2. Comparação**  
+                A LOGIQ testa alternativas de rota e compara os indicadores de cada uma.
+
+                **3. Prioridade**  
+                Você escolhe o que importa mais hoje: chegar rápido, gastar menos, andar menos, emitir menos ou equilibrar tudo.
+
+                **4. Rota executável**  
+                A melhor rota aparece em passo a passo:  
+                **{format_sequence(best['rota_lista'])}**
+
+                **5. Explicação**  
+                A decisão vem acompanhada dos indicadores que justificam a escolha.
+
+                **∞. Recalcular**  
+                Ao mudar os pesos ou subir outra planilha, o ciclo recomeça e a LOGIQ recomenda uma nova rota.
+                """
+            )
 
     # Tab 2
     with tabs[1]:
@@ -972,7 +1132,7 @@ try:
 
         st.markdown("### Trecho a trecho")
         segments_df = build_segments_table(graph, best["rota_lista"])
-        st.dataframe(segments_df, use_container_width=True, hide_index=True)
+        st.dataframe(segments_df, width="stretch", hide_index=True)
 
         st.markdown(
             f"""
@@ -982,7 +1142,7 @@ try:
             """,
             unsafe_allow_html=True,
         )
-        st.caption("Para o Google Maps funcionar bem, a aba Pontos deve ter endereço real ou latitude/longitude. A base de demonstração desta versão já inclui coordenadas simuladas.")
+        st.caption("Para o Google Maps funcionar bem, a aba Pontos precisa ter endereço real ou latitude/longitude. Se o Maps mostrar 'Cliente A' em vez de endereço, confira a aba Pontos da planilha enviada.")
 
     # Tab 3
     with tabs[2]:
@@ -1012,13 +1172,13 @@ try:
             unsafe_allow_html=True,
         )
         st.markdown("### Top 10 rotas")
-        st.dataframe(ranking[["opcao", "rota", "distancia_km", "tempo_min", "custo_rs", "co2", "score"]].head(10), use_container_width=True, hide_index=True)
+        st.dataframe(ranking[["opcao", "rota", "distancia_km", "tempo_min", "custo_rs", "co2", "score"]].head(10), width="stretch", hide_index=True)
 
     # Tab 4
     with tabs[3]:
         st.markdown('<div class="section-title">Dados</div>', unsafe_allow_html=True)
         st.markdown('<div class="section-subtitle">Transparência da base usada no cálculo.</div>', unsafe_allow_html=True)
-        st.dataframe(routes, use_container_width=True, hide_index=True)
+        st.dataframe(routes, width="stretch", hide_index=True)
         st.markdown("### Pesos aplicados")
         st.markdown(
             """
@@ -1036,7 +1196,7 @@ try:
             {"fator": "Custo", "peso": round(weights["custo_rs"], 4)},
             {"fator": "CO₂", "peso": round(weights["co2"], 4)},
         ])
-        st.dataframe(pesos_df, use_container_width=True, hide_index=True)
+        st.dataframe(pesos_df, width="stretch", hide_index=True)
 
     # Tab 5
     with tabs[4]:
@@ -1074,7 +1234,7 @@ try:
         total_q = alpha + beta
         alpha_norm, beta_norm = (0.5, 0.5) if total_q == 0 else (alpha / total_q, beta / total_q)
         q_df = quantum_inspired_demo(graph, alpha_norm, beta_norm)
-        st.dataframe(q_df[["opcao_quantica", "bitstring", "custo_ponderado", "arestas_ativadas"]].head(20), use_container_width=True, hide_index=True)
+        st.dataframe(q_df[["opcao_quantica", "bitstring", "custo_ponderado", "arestas_ativadas"]].head(20), width="stretch", hide_index=True)
         q_best = q_df.iloc[0]
         st.markdown(
             f"""
@@ -1087,19 +1247,6 @@ try:
                 Em português simples: esta foi a combinação demonstrativa com melhor nota dentro dos pesos escolhidos.
                 Ela não substitui a rota operacional; serve para mostrar como a solução pode evoluir para modelos quantum-inspired.
                 </p>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-
-        st.markdown(
-            """
-            <div class="pqc-card">
-                <div class="simple-title">Camada futura: segurança pós-quântica</div>
-                Uma evolução recomendada para a LOGIQ é prever criptografia pós-quântica na proteção de dados logísticos.
-                Isso não é necessário para o cálculo da rota, mas pode ser um diferencial de cybersecurity em ambientes com dados sensíveis.
-                <br><br>
-                Em linguagem de negócio: além de escolher a melhor rota, a solução pode ser preparada para proteger informações estratégicas contra ameaças futuras ligadas à computação quântica.
             </div>
             """,
             unsafe_allow_html=True,
